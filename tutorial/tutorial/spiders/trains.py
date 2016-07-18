@@ -18,9 +18,18 @@ class TrainsSpider(scrapy.Spider):
     #     'https://kyfw.12306.cn/otn/queryTrainInfo/getTrainName?',
     # )
     custom_settings={ 'ITEM_PIPELINES': {
-                        'tutorial.pipelines.TrainsSQLPipline': 300,
+                        'tutorial.pipelines.TrainSQLPipeline': 300,
                     },
+                      'DOWNLOADER_MIDDLEWARES': {
+                        'tutorial.middle.DownloaderMiddleware': 500,
+                    },
+                       'DUPEFILTER_CLASS': "tutorial.filter.URLTurnFilter",
+                       'JOBDIR': "s/trains",
     }
+    def __init__(self, *a, **kw):
+        super(TrainsSpider, self).__init__(self.name, **kw)
+        self.turn = a[0]
+        self.logger.info("%s. this turn %d" % (self.name, self.turn)) 
     def start_requests(self):
         url = "https://kyfw.12306.cn/otn/queryTrainInfo/getTrainName?"
         t = (datetime.datetime.now() + datetime.timedelta(days = 3)).strftime("%Y-%m-%d")
@@ -28,7 +37,7 @@ class TrainsSpider(scrapy.Spider):
         
         s_url = url + urllib.urlencode(params)
         self.logger.debug("start url " + s_url)
-        yield Request(s_url, callback = self.parse, meta = {"t":t})
+        yield Request(s_url, callback = self.parse, meta = {"t":t,"turn":self.turn})
 
 
 
@@ -43,13 +52,14 @@ class TrainsSpider(scrapy.Spider):
             briefs = briefs[1].split("-")
             item["start"] = briefs[0]
             item["end"] = briefs[1][:-1]
+            item["turn"] = response.meta["turn"]
             yield item
             params = u"train_no=" + data["train_no"] + u"&from_station_telecode=BBB&to_station_telecode=BBB&depart_date=" + response.meta["t"]
-            yield Request(url+params,callback=self.parse_trains_schedule,meta={"train_no":data["train_no"]})
+            yield Request(url+params,callback=self.parse_trains_schedule,meta={"train_no":data["train_no"],"turn":response.meta["turn"]})
 
     def parse_trains_schedule(self,response):
         stations = json.loads(response.body)
-        nos=[]
+        #nos=[]
         datas = stations["data"]["data"]
         size = len(datas)
         for i in range(0, size):
@@ -59,17 +69,8 @@ class TrainsSpider(scrapy.Spider):
             info["train_no"] = response.meta["train_no"];
             info["no"] = int(data["station_no"])
             info["station"] = data["station_name"]
-            nos.append(info["no"])
-            #主要考虑到no的不确定，可以将一个车次的所有no放入一个集合之中，然后根据集合元素所在的索引判断type
-            # print nos.index(info["no"])
-            # print len(nos)
-            if nos.index(info["no"]) == 0:
-                info["type"] = 0
-            elif nos.index(info["no"])==size-1:
-                info["type"] = 1
-            else:
-                info["type"] = 2
-            
+            info["turn"] = response.meta["turn"]
+
             if data["start_time"] != u"----":
                 info["start_time"] = data["start_time"] + u":00";
             else:
@@ -80,10 +81,14 @@ class TrainsSpider(scrapy.Spider):
             else:
                 info["arrive_time"] = None
 
-            if data["stopover_time"] != u"----":
-                info["stopover_time"] = data["stopover_time"] + u":00";
+            stop = data["stopover_time"]
+            if stop != u"----":
+                if stop.endswith(u"分钟"):
+                    info["stopover_time"] = u"00:" + stop[:stop.find(u"分钟")] + u":00";
+                else:
+                    info["stopover_time"] = stop + u":00";
             else:
                 info["stopover_time"] = None
-            # print nos
+
             yield info
         yield CommitItem()

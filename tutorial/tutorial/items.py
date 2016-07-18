@@ -7,8 +7,12 @@
 
 import scrapy
 
-class ProvinceItem(scrapy.Item):
-    name = scrapy.Field()    
+class CommitItem(scrapy.Item):
+    pass
+
+class TurnItem(scrapy.Item):
+    id = scrapy.Field()
+    mark = scrapy.Field()
 
 class AgencyItem(scrapy.Item):
     province = scrapy.Field()
@@ -19,13 +23,9 @@ class AgencyItem(scrapy.Item):
     windows = scrapy.Field()
     start = scrapy.Field()
     end = scrapy.Field()
-
-class CommitItem(scrapy.Item):
-    pass
+    turn = scrapy.Field()
 
 class StationItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
     bureau = scrapy.Field()
     station = scrapy.Field()
     name = scrapy.Field()
@@ -33,33 +33,34 @@ class StationItem(scrapy.Item):
     passenger = scrapy.Field()
     luggage = scrapy.Field()
     package = scrapy.Field()
+    turn = scrapy.Field()
 
 class BriefItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
     code = scrapy.Field()
     train_no = scrapy.Field()
     start = scrapy.Field()
     end = scrapy.Field()
+    turn = scrapy.Field()
 
 class InfoItem(scrapy.Item):
-    train_no=scrapy.Field()
-    no=scrapy.Field()
-    station=scrapy.Field()
-    type=scrapy.Field()
-    start_time=scrapy.Field()
-    arrive_time=scrapy.Field()
-    stopover_time=scrapy.Field()
-
-class CodeItem(scrapy.Item):
-    name = scrapy.Field()
-    code = scrapy.Field()
+    train_no = scrapy.Field()
+    no = scrapy.Field()
+    station = scrapy.Field()
+    start_time = scrapy.Field()
+    arrive_time = scrapy.Field()
+    stopover_time = scrapy.Field()
+    seat_type = scrapy.Field()
     turn = scrapy.Field()
 
 class BriefDeltaItem(scrapy.Item):
     code = scrapy.Field()
     seat_type = scrapy.Field()
+    turn = scrapy.Field()
 
+class CodeItem(scrapy.Item):
+    name = scrapy.Field()
+    code = scrapy.Field()
+    turn = scrapy.Field()
 
 class TicketItem(scrapy.Item):
     train_no = scrapy.Field()
@@ -76,3 +77,5 @@ class TicketItem(scrapy.Item):
     yz = scrapy.Field()
     wz = scrapy.Field()
     qt = scrapy.Field()
+    turn = scrapy.Field()
+

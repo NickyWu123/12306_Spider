@@ -18,10 +18,22 @@ class TicketsSpider(scrapy.Spider):
     custom_settings = {
             'ITEM_PIPELINES': {
                 'tutorial.pipelines.TicketSQLPipeline': 300,
-            }
+            },
+            'DOWNLOADER_MIDDLEWARES': {
+                'tutorial.middle.DownloaderMiddleware': 500,
+            },
+            'DUPEFILTER_CLASS': "tutorial.filter.URLTurnFilter",
+            'JOBDIR': "s/tickets",
     }
+    def __init__(self, *a, **kw):
+        super(TicketsSpider, self).__init__(self.name, **kw)
+        self.turn = a[0]
+        self.logger.info("%s. this turn %d" % (self.name, self.turn)) 
 
+    def start_requests(self):
+        yield Request("https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.8936", callback = self.parse, meta = {"turn":self.turn})
     #取出车站，将路线内的车站进行组合
+    
     @staticmethod
     def fetch_routes():
         conn = pymysql.connect(host = 'localhost',
@@ -74,6 +86,7 @@ class TicketsSpider(scrapy.Spider):
             item = CodeItem()
             item["name"] = station[1]
             item["code"] = station[2]
+            item["turn"] = response.meta["turn"]
             yield item
         #print results
             #print response.body
@@ -95,58 +108,59 @@ class TicketsSpider(scrapy.Spider):
                     continue
             params = u"queryDate=" + t + u"&from_station=" + code_s + u"&to_station=" + code_e
 
-            yield Request(url + params, callback = self.parse_ticket, meta = {"s":s, "e":e}) 
+            yield Request(url + params, callback = self.parse_ticket, meta = {"s":s, "e":e,"turn":response.meta["turn"]}) 
 
     def parse_ticket(self, response):
-	    datas = json.loads(response.body)
-	    #print datas
-	    if "datas" not in datas["data"]:
-	        self.logger.info("there is no data " + response.meta["s"] + " " + response.meta["e"])
-	        return
+        datas = json.loads(response.body)
+        if "datas" not in datas["data"]:
+            self.logger.info("there is no data " + response.meta["s"] + " " + response.meta["e"])
+            return
 
-	    for data in datas["data"]["datas"]:
-	        deltaItem = BriefDeltaItem()
+        for data in datas["data"]["datas"]:
+            deltaItem = BriefDeltaItem()
 
-	        deltaItem["code"] = data["station_train_code"]
-	        deltaItem["seat_type"] = data["seat_types"]
-	        yield deltaItem
-	        item = TicketItem()
-	        item["train_no"] = data["train_no"]
-	        item["start"] = data["from_station_name"]
-	        item["end"] = data["to_station_name"]
-	        item["swz"] = data["swz_num"]
-	        if item["swz"] == '--':
-	            item["swz"] = -1
-	        item["tz"] = data["tz_num"]
-	        if item["tz"] == '--':
-	            item["tz"] = -1
-	        item["zy"] = data["zy_num"]
-	        if item["zy"] == '--':
-	            item["zy"] = -1
-	        item["ze"] = data["ze_num"]
-	        if item["ze"] == '--':
-	            item["ze"] = -1
-	        item["gr"] = data["gr_num"]
-	        if item["gr"] == '--':
-	            item["gr"] = -1
-	        item["rw"] = data["rw_num"]
-	        if item["rw"] == '--':
-	           item["rw"] = -1
-	        item["yw"] = data["yw_num"]
-	        if item["yw"] == '--':
-	           item["yw"] = -1
-	        item["rz"] = data["rz_num"]
-	        if item["rz"] == '--':
-	           item["rz"] = -1
-	        item["yz"] = data["yz_num"]
-	        if item["yz"] == '--':
-	           item["yz"] = -1
-	        item["wz"] = data["wz_num"]
-	        if item["wz"] == '--':
-	           item["wz"] = -1
-	        item["qt"] = data["qt_num"]
-	        if item["qt"] == '--':
-	           item["qt"] = -1
-	        #print item
-	        yield item
-	    yield CommitItem()
+            deltaItem["code"] = data["station_train_code"]
+            deltaItem["seat_type"] = data["seat_types"]
+            deltaItem["turn"] = response.meta["turn"]
+            yield deltaItem
+
+            item = TicketItem()
+            item["train_no"] = data["train_no"]
+            item["start"] = data["from_station_name"]
+            item["end"] = data["to_station_name"]
+            item["swz"] = data["swz_num"]
+            item["turn"] = response.meta["turn"]
+            if item["swz"] == '--':
+                item["swz"] = -1
+            item["tz"] = data["tz_num"]
+            if item["tz"] == '--':
+                item["tz"] = -1
+            item["zy"] = data["zy_num"]
+            if item["zy"] == '--':
+                item["zy"] = -1
+            item["ze"] = data["ze_num"]
+            if item["ze"] == '--':
+                item["ze"] = -1
+            item["gr"] = data["gr_num"]
+            if item["gr"] == '--':
+                item["gr"] = -1
+            item["rw"] = data["rw_num"]
+            if item["rw"] == '--':
+                item["rw"] = -1
+            item["yw"] = data["yw_num"]
+            if item["yw"] == '--':
+                item["yw"] = -1
+            item["rz"] = data["rz_num"]
+            if item["rz"] == '--':
+                item["rz"] = -1
+            item["yz"] = data["yz_num"]
+            if item["yz"] == '--':
+                item["yz"] = -1
+            item["wz"] = data["wz_num"]
+            if item["wz"] == '--':
+                item["wz"] = -1
+            item["qt"] = data["qt_num"]
+            if item["qt"] == '--':
+                item["qt"] = -1
+            yield item
+        yield CommitItem()
